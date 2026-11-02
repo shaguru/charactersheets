@@ -55,7 +55,9 @@ try {
     if ($LASTEXITCODE -eq 0 -and $Capabilities.Count -and [double]::Parse($Capabilities[0], [Globalization.CultureInfo]::InvariantCulture) -lt 8.0) {
         throw 'Qwen requires native BF16 support. Use an NVIDIA Ampere or newer GPU (RTX 30/40/50 series).'
     }
-    if ([int]$Gpu[2] -lt 16384) { Write-Warning 'Qwen is a large model. 24 GB VRAM is recommended; this GPU may need smaller images or run out of memory.' }
+    if ([int]$Gpu[2] -le 12288) {
+        Write-Host 'Low-VRAM GPU: the app will use CPU offload and smaller render sizes automatically.' -ForegroundColor Yellow
+    }
     $Ram = (Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB
     if ($Ram -lt 60) { Write-Warning ('Qwen uses CPU offload. 64 GB system RAM is recommended; detected {0:N0} GB.' -f $Ram) }
 
@@ -70,7 +72,9 @@ try {
                 $Dest = Join-Path (Join-Path $Data 'models') ($file.dir + '/' + $file.name)
                 if ((Test-Path -LiteralPath $Dest) -and (Get-Item -LiteralPath $Dest).Length -eq $file.size) { continue }
                 $Have = if (Test-Path -LiteralPath ($Dest + '.part')) { (Get-Item -LiteralPath ($Dest + '.part')).Length } else { 0 }
-                $MissingBytes += [math]::Max(0, $file.size - $Have)
+                # Both arguments must be Int64: PowerShell 5.1 otherwise picks
+                # Math.Max(Int32, Int32) for a missing 28 GB checkpoint.
+                $MissingBytes += [math]::Max([long]0, ([long]$file.size - [long]$Have))
             }
         }
     }

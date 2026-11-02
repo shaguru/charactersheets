@@ -31,6 +31,7 @@ After installation, double-click **START.bat**. It checks the local environment 
 - NVIDIA Ampere or newer GPU with native BF16 support, such as RTX 30/40/50 series. AMD, Intel and CPU generation are not supported.
 - NVIDIA driver **570.65 or newer**. If it is missing or too old, setup explains how to update it; the display driver itself requires installation through NVIDIA.
 - **24 GB VRAM and 64 GB system RAM recommended.** This configuration was verified on an RTX 3090 Ti. Smaller GPUs may need smaller images and can run out of memory. Qwen uses sequential CPU offload.
+- **8–12 GB GPUs:** low-VRAM mode is selected automatically. Qwen streams weights from system RAM to the GPU, uses tiled VAE processing, and limits output to 768×512-equivalent pixel area while keeping the selected aspect ratio. Optional SDXL also uses CPU offload. Start with one reference, one image and guidance 1.0; 64 GB RAM is recommended. This trades speed and output size for lower GPU memory use, and does not guarantee every render will fit.
 - Allow **45 GB free** for first setup. Optional SDXL models need another 11 GB or more. Use a local drive with room for generated images; an SSD is preferable.
 - Internet for setup and model downloads. Rendering uses local weights and configuration files.
 
@@ -82,9 +83,12 @@ Personal images, settings, tokens, caches, models and installed environments are
 - **Setup failed:** read the console and `data/logs/setup.log`, fix the reported issue, and rerun START.bat. Completed downloads are reused.
 - **CUDA check failed:** update the NVIDIA driver and restart Windows. Setup checks real GPU execution and does not switch silently to CPU.
 - **Out of memory:** close other GPU applications, reduce output dimensions, and use one model at a time. The model needs substantial system RAM as well as VRAM.
+- **RTX 3070 / 8 GB VRAM:** low-VRAM mode starts automatically. Try a single reference at 512×512 first. CPU offload can be slow; leave the Windows page file system-managed on a drive with free space. The full 28.4 GB model is still downloaded because offload changes where weights run, not the model file size.
+- **Installer `System.Int32` / `Math.Max` error:** update to the latest source (or replace `tools/setup-direct.ps1` with the current version) and rerun INSTALL.bat. This was a 32-bit size calculation bug, not a GPU compatibility failure. Existing downloads and environments can be reused.
 - **Missing references after clearing images:** remove the old reference tiles and upload a reference again.
 - **Folder moved:** START.bat repairs the local interpreter path. Moving between PCs still requires a compatible NVIDIA GPU and driver.
 - **Port in use:** close the other app, or run `set FORGE_PORT=8290` in Command Prompt before running START.bat.
+- **Force the memory profile:** in Command Prompt, run `set FORGE_LOW_VRAM=1` before START.bat to force low-VRAM mode, or `set FORGE_LOW_VRAM=0` to keep standard sizes. The default is automatic. Restart the server after changing it.
 - **Python cannot start:** install the [Microsoft Visual C++ x64 Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe), then retry.
 
 The server listens only on `127.0.0.1`. Interrupted renders remain marked as interrupted after a restart; they do not restart silently.
@@ -92,7 +96,8 @@ The server listens only on `127.0.0.1`. Interrupted renders remain marked as int
 ## Developer checks
 
 ```bat
-runtime\.venv\Scripts\python.exe -m unittest discover -s runtime -p test_rapid_aio.py -v
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\test-setup-size.ps1
+runtime\.venv\Scripts\python.exe -m unittest discover -s runtime -p test_*.py -v
 cd runtime\qa
 npm install
 npm test

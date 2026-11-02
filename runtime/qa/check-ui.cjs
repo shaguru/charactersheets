@@ -28,7 +28,7 @@ const { chromium } = require('playwright');
     await page.locator('.tile img').first().waitFor();
     assert.equal(await page.locator('#modelList input').count(), 2);
     assert.equal(await page.locator('.tile img').count(), 2);
-    assert.equal(await page.locator('#hw').textContent(), 'CUDA enabled');
+    assert.match(await page.locator('#hw').textContent(), /^CUDA enabled/);
 
     const open = async () => {
       await page.locator('.tile img').first().click();
@@ -61,7 +61,21 @@ const { chromium } = require('playwright');
       await page.setViewportSize({ width, height: 900 });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `overflow at ${width}px`);
     }
+    // Exercise the automatic 8 GB UI without requiring that physical GPU.
+    await page.route('**/forge/api/config', async route => {
+      const response = await route.fetch();
+      const config = await response.json();
+      config.memory_profile = { low_vram: true, vram_gb: 8, max_pixels: 393216 };
+      for (const size of Object.values(config.presets.sizes)) {
+        if (size.w && size.h) { size.w = 768; size.h = 512; }
+      }
+      await route.fulfill({ json: config });
+    });
+    await page.reload();
+    await page.locator('#memoryHint').waitFor({ state: 'visible' });
+    assert.match(await page.locator('#hw').textContent(), /CPU offload/);
+    assert.match(await page.locator('#size option').first().textContent(), /768×512/);
     assert.deepEqual(errors, []);
-    console.log('PASS: model cards, CUDA status, gallery, click-to-close, background close, navigation, sidebar, Escape, close button, layouts and browser errors.');
+    console.log('PASS: model cards, CUDA status, gallery, click-to-close, navigation, layouts, low-VRAM UI and browser errors.');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });

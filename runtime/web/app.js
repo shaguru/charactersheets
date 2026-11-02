@@ -27,6 +27,11 @@ async function loadConfig() {
   S.cfg = await api('/forge/api/config');
   const hw = $('#hw');
   if (hw) { hw.textContent = S.cfg.cuda ? 'CUDA enabled' : 'CUDA unavailable'; hw.title = S.cfg.gpu || ''; hw.classList.toggle('good', !!S.cfg.cuda); }
+  const lowVram = !!S.cfg.memory_profile?.low_vram;
+  const memoryHint = $('#memoryHint');
+  memoryHint.classList.toggle('hidden', !lowVram);
+  memoryHint.textContent = lowVram ? 'Low VRAM: CPU offload is active. Render sizes are reduced automatically. Start with one reference and one image; allow extra time.' : '';
+  if (lowVram && hw) hw.textContent += ' · CPU offload';
   if (!S.project) S.project = S.cfg.last_project;
   renderRuntime(S.cfg.runtime);
   renderProjects(); renderSheets(); renderSizes(); renderModelList(); renderModelCards();
@@ -243,6 +248,7 @@ async function queue(reqOverride) {
     S.lastBatch = r.batch;
     msg.className = r.errors.length ? 'msg err' : 'msg ok';
     msg.textContent = `Queued ${r.queued}.` + (r.errors.length ? '\n' + r.errors.join('\n') : ' You can leave it running and come back.');
+    if (r.notices?.length) msg.textContent += '\n' + r.notices.join('\n');
     pollJobs();
   } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
 }

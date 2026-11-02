@@ -31,6 +31,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image, ImageOps, PngImagePlugin
 import uvicorn
 import downloader
+from memory_policy import limit_dimensions, presets_for_profile, profile_for_vram
 
 # Generation uses verified local files. Setup is the only code that fetches
 # configs or weights, so a render cannot quietly wait for an online download.
@@ -56,6 +57,10 @@ with CATALOG_PATH.open("r", encoding="utf-8-sig") as f:
     CATALOG = json.load(f)
 with PRESETS.open("r", encoding="utf-8") as f:
     PRESET_DATA = json.load(f)
+MEMORY_PROFILE = profile_for_vram(
+    torch.cuda.get_device_properties(0).total_memory if torch.cuda.is_available() else 0,
+    os.environ.get("FORGE_LOW_VRAM", "auto"),
+)
 
 app = FastAPI(title="Character Forge direct engine")
 app.mount("/forge/static", StaticFiles(directory=str(WEB)), name="forge-static")
@@ -404,7 +409,8 @@ def load_pipeline(mid: str, job=None):
     check_cancel()
     if job:
         update(job, "moving model to GPU")
-    pipe = pipe.to(device)
+    if not MEMORY_PROFILE["low_vram"]:
+        pipe = pipe.to(device)
     check_cancel()
     if job:
         update(job, "loading reference adapter")
@@ -414,6 +420,9 @@ def load_pipeline(mid: str, job=None):
         str(IP_DIR), subfolder="", weight_name="ip-adapter-plus-face_sdxl_vit-h.safetensors",
         image_encoder_folder="image_encoder", local_files_only=True,
     )
+    if MEMORY_PROFILE["low_vram"]:
+        # Attach hooks after the adapter/encoder exist, so they are offloaded too.
+        pipe.enable_sequential_cpu_offload(device="cuda")
     pipe.set_ip_adapter_scale(float(m.get("reference_weight", 0.8)))
     pipe.set_progress_bar_config(disable=True)
     pipe.scheduler = DPMSolverMultistepScheduler.from_config(
@@ -577,7 +586,8 @@ def config():
         mm.update(model_status(m))
         mm["download"] = DL["status"].get(m["id"])
         ms.append(mm)
-    return {"models": ms, "presets": PRESET_DATA, "has_token": bool(read_settings().get("hf_token")),
+    return {"models": ms, "presets": presets_for_profile(PRESET_DATA, MEMORY_PROFILE),
+            "memory_profile": MEMORY_PROFILE, "has_token": bool(read_settings().get("hf_token")),
             "free_gb": round(shutil.disk_usage(MODELS).free / 1e9, 1),
             "projects": projects, "last_project": read_settings().get("last_project") or "My_Project",
             "output_dir": str(OUTPUT), "models_dir": str(MODELS), "backend": "direct-diffusers",
@@ -679,6 +689,11 @@ def queue(body: dict[str, Any]):
         raise HTTPException(400, "Invalid image or generation settings")
     if w < 256 or h < 256 or w > 2048 or h > 2048 or w % 8 or h % 8 or w * h > 2_097_152:
         raise HTTPException(400, "Use dimensions from 256 to 2048, multiples of 8, and at most 2 megapixels.")
+    requested_size = (w, h)
+    w, h = limit_dimensions(w, h, MEMORY_PROFILE["max_pixels"])
+    notices = []
+    if (w, h) != requested_size:
+        notices.append(f"Low VRAM: render size reduced from {requested_size[0]}x{requested_size[1]} to {w}x{h} for CPU offload.")
     if not 1 <= count <= 200 or not 0 <= strength <= 1.5 or not 0 <= seed0 < 2**63 - 200:
         raise HTTPException(400, "Invalid count, reference strength or seed")
     batch = time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
@@ -724,7 +739,7 @@ def queue(body: dict[str, Any]):
             queued += 1
     WORKER_WAKE.set()
     save_settings({"last_project": project})
-    return {"queued": queued, "errors": errors, "batch": batch}
+    return {"queued": queued, "errors": errors, "batch": batch, "notices": notices}
 
 
 @app.get("/forge/api/jobs")
@@ -886,4 +901,5 @@ if __name__ == "__main__":
         threading.Thread(target=open_when_ready, daemon=True).start()
     print(f"[Character Forge] Direct Diffusers engine at http://127.0.0.1:{PORT}/forge/")
     print(f"[Character Forge] CUDA: {torch.cuda.is_available()} " + (torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"))
+    print(f"[Character Forge] Memory profile: {MEMORY_PROFILE['label']}")
     uvicorn.run(app, host="127.0.0.1", port=PORT, log_level="info", access_log=False)
