@@ -1,0 +1,63 @@
+{
+  "_help": "Prompt presets. Edit freely. {CHAR} becomes the right reference tag for each model (e.g. <ref_image_0>, <image1>, Picture 1). {REF2} {REF3} ... are extra reference images. {NOTES} is the 'extra notes' box. {BG} is the chosen background.",
+  "identity_lock": "Keep the character exactly identical to {CHAR}: same face, head shape, body proportions, colours, materials, outfit, accessories, markings and the same art style and rendering style. Do not redesign or restyle the character.",
+  "sheets": [
+    {
+      "id": "turnaround5",
+      "name": "Turnaround - 5 views",
+      "size": "sheet-wide",
+      "prompt": "A professional five-view character turnaround model sheet of the character from {CHAR}. Show five distinct full-body views side by side in this exact order from left to right: 1 front-facing view, 2 three-quarter front view facing left, 3 true left-facing profile, 4 true right-facing profile, 5 rear-facing back view. The left and right profiles must face opposite directions; do not mirror or repeat any view, and do not show two back views. Keep the same character, outfit, hairstyle, proportions, scale and standing pose in every view, with feet aligned on one ground line and even spacing. {BG}, flat even studio lighting, no cast shadows. {NOTES} No text, no labels, no borders."
+    },
+    {
+      "id": "turnaround3",
+      "name": "Turnaround - front / side / back",
+      "size": "landscape",
+      "prompt": "A clean character model sheet of the character from {CHAR}: three full-body views side by side in one row - front view, side profile view and back view. Neutral standing pose, identical scale, feet on the same ground line. {BG}, flat even lighting. {NOTES} No text, no labels."
+    },
+    {
+      "id": "expressions",
+      "name": "Expression sheet - 6 faces",
+      "size": "landscape",
+      "prompt": "A character expression sheet of the character from {CHAR}. A neat 3 by 2 grid of six head-and-shoulders portraits of the same character, all facing the viewer at the same scale: happy, sad, angry, surprised, scared, thoughtful. Expressive, readable acting in the face and eyes while the design stays identical. {BG}. {NOTES} No text, no labels."
+    },
+    {
+      "id": "poses",
+      "name": "Action pose sheet - 6 poses",
+      "size": "sheet-wide",
+      "prompt": "A character pose sheet of the character from {CHAR}. Six full-body drawings of the same character in one row showing different poses: walking, running, jumping, waving hello, sitting, pointing. Clear silhouettes, consistent scale and proportions. {BG}. {NOTES} No text, no labels."
+    },
+    {
+      "id": "fullsheet",
+      "name": "Full model sheet (views + faces + details)",
+      "size": "sheet-wide",
+      "prompt": "A complete professional character model sheet of the character from {CHAR}. Top row: full-body front view, side view and back view at the same scale. Bottom row: four head close-ups with different expressions (happy, surprised, angry, sad) and two close-up detail callouts of important design details such as hands, accessories or patterns. Tidy studio layout, {BG}, flat even lighting. {NOTES} No text, no labels."
+    },
+    {
+      "id": "headturn",
+      "name": "Head turnaround - 5 angles",
+      "size": "sheet-wide",
+      "prompt": "A head turnaround sheet of the character from {CHAR}: five head-and-shoulders views in one row - front, three-quarter left, left profile, three-quarter back, back. Same scale and eye line across all views. {BG}, flat even lighting. {NOTES} No text, no labels."
+    },
+    {
+      "id": "custom",
+      "name": "Custom sheet (write your own)",
+      "size": "sheet-wide",
+      "prompt": "A character sheet of the character from {CHAR}. {NOTES}"
+    }
+  ],
+  "backgrounds": {
+    "white": "plain pure white background",
+    "grey": "plain neutral light grey background",
+    "keep": "background in the same style as the reference image"
+  },
+  "scene_template": "{SCENE} The character is the one from {CHAR}. {LOCK}",
+  "sizes": {
+    "square":     {"label": "Square 1:1",          "w": 1024, "h": 1024},
+    "portrait":   {"label": "Portrait 3:4",        "w": 896,  "h": 1184},
+    "landscape":  {"label": "Landscape 3:2",       "w": 1248, "h": 832},
+    "wide":       {"label": "Wide 16:9",           "w": 1360, "h": 768},
+    "sheet-wide": {"label": "Model sheet 21:9",    "w": 1792, "h": 768},
+    "book":       {"label": "Book spread 2:1",     "w": 1536, "h": 768},
+    "match":      {"label": "Match reference",     "w": 0,    "h": 0}
+  }
+}

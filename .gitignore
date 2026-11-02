@@ -1,0 +1,22 @@
+# Machine-local environments, models, references, generated work and credentials.
+/data/
+/engine/
+/tools/7zr.exe
+/tools/setup.ps1
+/tools/remove_retired_models.py
+/runtime/python/
+/runtime/python312/
+/runtime/.venv/
+/runtime/.requirements.sha256
+/runtime/.install.lock
+*.whl
+*.nupkg
+*.part
+*.log
+__pycache__/
+*.py[cod]
+node_modules/
+.env
+.env.*
+.DS_Store
+Thumbs.db

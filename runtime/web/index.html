@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Character Forge</title>
+<link rel="stylesheet" href="/forge/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="mark">◆</span> Character Forge <span class="sub">local</span></div>
+  <nav class="tabs" id="pageTabs">
+    <button data-page="studio" class="on">Studio</button>
+    <button data-page="models">Models <span id="modelsBadge" class="badge hidden"></span></button>
+  </nav>
+  <div class="proj">
+    <label>Project</label>
+    <select id="project"></select>
+    <button id="newProject" class="ghost" title="New project">＋</button>
+    <button id="openFolder" class="ghost" title="Open this project's output folder">📁</button>
+  </div>
+  <div class="qstat" id="qstat">Idle</div>
+  <div class="model-status" id="modelStatus" title="No model is loaded">Model: unloaded</div>
+  <div class="hw" id="hw">Direct engine</div>
+  <button id="stopAll" class="danger ghost" title="Cancel everything queued and stop the current render">Stop all</button>
+</header>
+
+<main id="studio" class="page">
+  <aside class="panel">
+    <section>
+      <h3>1 · Character</h3>
+      <div id="drop" class="drop">
+        <div class="drop-hint">Drop the character image here<br><small>or click to choose · Ctrl+V to paste · first image = the character</small></div>
+        <input type="file" id="fileIn" accept="image/*" multiple hidden>
+      </div>
+      <div id="refs" class="refs"></div>
+      <p class="hint" id="refHint">The selected model determines how many reference images it can use.</p>
+    </section>
+
+    <section>
+      <h3>2 · Mode</h3>
+      <div class="seg" id="modeSeg">
+        <button data-mode="sheet" class="on">Character sheet</button>
+        <button data-mode="scene">Place in scene</button>
+        <button data-mode="free">Free prompt</button>
+      </div>
+
+      <div class="mode" data-mode="sheet">
+        <div id="sheetCards" class="cards"></div>
+        <label class="lbl">Background</label>
+        <div class="seg small" id="bgSeg">
+          <button data-bg="white" class="on">White</button>
+          <button data-bg="grey">Grey</button>
+          <button data-bg="keep">Like reference</button>
+        </div>
+        <label class="lbl">Extra notes <small>(optional, e.g. "chibi proportions", "holding a red umbrella")</small></label>
+        <textarea id="notes" rows="2"></textarea>
+      </div>
+
+      <div class="mode hidden" data-mode="scene">
+        <label class="lbl">Describe the scene</label>
+        <textarea id="scene" rows="5" placeholder="The character is flying a paper kite on a windy hilltop at sunset, wide shot, warm golden light, soft painterly picture-book style."></textarea>
+        <p class="hint">Describe the setting, pose, clothing and art style. Qwen uses the full reference to preserve the character and outfit. Exact sheet layouts can vary.</p>
+      </div>
+
+      <div class="mode hidden" data-mode="free">
+        <label class="lbl">Prompt (sent as written)</label>
+        <textarea id="raw" rows="6" placeholder="The character standing on a windswept hill, wearing a navy jacket, soft storybook illustration…"></textarea>
+        <p class="hint"><code>{CHAR}</code> means the character in the first image. Use <code>{REF2}</code> and <code>{REF3}</code> for extra Qwen references.</p>
+      </div>
+    </section>
+
+    <section>
+      <h3>3 · Models <small class="dim">tick several to compare</small></h3>
+      <div id="modelList" class="mlist"></div>
+    </section>
+
+    <section>
+      <h3>4 · Batch</h3>
+      <div class="row">
+        <label class="lbl inline">Images per model</label>
+        <input type="number" id="count" min="1" max="200" value="4">
+      </div>
+      <div class="chips" id="countChips">
+        <button>1</button><button>4</button><button>10</button><button>20</button><button>30</button><button>50</button>
+      </div>
+      <div class="row">
+        <label class="lbl inline">Size</label>
+        <select id="size"></select>
+      </div>
+      <div class="row hidden">
+        <label class="toggle"><input type="checkbox" id="fast"> Fast mode <small class="dim">(Lightning 4-step on Qwen models)</small></label>
+      </div>
+      <details open>
+        <summary>Sampling & output settings</summary>
+        <div class="row"><label class="lbl inline">Seeds</label>
+          <select id="seedMode"><option value="random">Random each image</option><option value="fixed">Fixed start, +1 each</option></select>
+          <input type="number" id="seed" placeholder="seed" class="w120"></div>
+        <div class="row"><label class="lbl inline">Sampling steps</label><input type="number" id="steps" placeholder="model default" class="w120"></div>
+        <div class="row"><label class="lbl inline">Guidance (CFG)</label><input type="number" id="cfg" step="0.1" placeholder="model default" class="w120"></div>
+        <div class="row"><label class="lbl inline" for="referenceStrength">Face guidance</label><input type="number" id="referenceStrength" min="0" max="1.5" step="0.05" value="0.65" class="w80"></div>
+        <p class="hint">Face guidance applies to SDXL only. Qwen uses native reference editing; leave Steps and CFG blank for its four-step recipe.</p>
+        <p class="hint" id="samplingHint"></p>
+        <label class="lbl">Negative prompt <small>(optional)</small></label>
+        <textarea id="negative" rows="2" placeholder="low quality, blurry, deformed, watermark"></textarea>
+        <p class="hint">Qwen uses this when Guidance is above 1.0. At 1.0, Qwen's true CFG path intentionally disables negative conditioning.</p>
+        <label class="lbl">Dynamic choices <small>use [option A | option B | option C]</small></label>
+        <p class="hint">Each bracket group is chosen independently per image. Example: <code>[short hair | long hair]</code>.</p>
+        <div class="row"><label class="lbl inline">Width × height</label><input type="number" id="w" class="w80" placeholder="w"> × <input type="number" id="h" class="w80" placeholder="h"></div>
+      </details>
+    </section>
+
+    <div class="go">
+      <button id="queueBtn" class="primary">Queue</button>
+      <div id="queueMsg" class="msg"></div>
+    </div>
+  </aside>
+
+  <section class="gallery">
+    <div class="gtools">
+      <div class="seg small" id="filterSeg">
+        <button data-f="all" class="on">All</button>
+        <button data-f="fav">★ Favourites</button>
+        <button data-f="batch">Last batch</button>
+      </div>
+      <select id="modelFilter"><option value="">All models</option></select>
+      <label class="dim">Thumb</label><input type="range" id="thumb" min="140" max="520" value="260">
+      <span id="gcount" class="dim"></span>
+      <button id="selectVisible" class="ghost">Select visible</button>
+      <button id="deleteSelected" class="danger" disabled>Delete selected</button>
+      <button id="deleteAll" class="danger">Delete all</button>
+    </div>
+    <div id="grid" class="grid"></div>
+    <div id="empty" class="empty hidden">
+      <div class="emark">◆</div>
+      <p>Drop a character on the left, pick a mode and queue a batch.<br>Leave it running and come back. Favourite (★) the keepers.</p>
+    </div>
+  </section>
+</main>
+
+<main id="models" class="page hidden">
+  <div class="mhead">
+    <div>
+      <h2>Models</h2>
+      <p class="dim">Everything runs on this PC. Models are saved in <code id="modelsDir"></code>. Free space: <b id="freeGb"></b> GB.</p>
+    </div>
+    <div class="token">
+      <label class="lbl">Hugging Face token <small>(optional for authenticated downloads)</small></label>
+      <div class="row"><input type="password" id="token" placeholder="hf_…"><button id="saveToken">Save</button><span id="tokenState" class="dim"></span></div>
+      <p class="hint">Make a free account → open the model page → "Agree and access" → Settings → Access Tokens → New token (Read).</p>
+    </div>
+  </div>
+  <div class="runtime-card" id="runtimeCard">
+    <div><b>Runtime model</b><div class="dim" id="runtimeDetail">No model loaded. It will load when you queue an image.</div></div>
+    <button id="unloadModel" class="danger" disabled>Unload model</button>
+  </div>
+  <div id="modelCards" class="mcards"></div>
+</main>
+
+<div id="lightbox" class="lb hidden">
+  <button class="lbclose" id="lbClose">✕</button>
+  <button class="lbnav prev" id="lbPrev">‹</button>
+  <img id="lbImg" alt="Generated image" title="Click image to close">
+  <button class="lbnav next" id="lbNext">›</button>
+  <div class="lbinfo">
+    <div class="lbtitle" id="lbTitle"></div>
+    <div class="lbmeta" id="lbMeta"></div>
+    <div class="lbbtns">
+      <button id="lbFav">★ Favourite <kbd>F</kbd></button>
+      <button id="lbRef">Use as reference <kbd>R</kbd></button>
+      <button id="lbMore">More like this ×4</button>
+      <button id="lbLoad">Load settings</button>
+      <a id="lbDl" class="btn" download>Download</a>
+    </div>
+    <details><summary>Prompt</summary><pre id="lbPrompt"></pre></details>
+  </div>
+</div>
+
+<script src="/forge/static/app.js?v=20261102"></script>
+</body>
+</html>

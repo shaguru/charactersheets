@@ -1,0 +1,242 @@
+{
+ "models": [
+  {
+   "id": "qwen-rapid-aio",
+   "name": "Qwen Rapid AIO v19",
+   "maker": "Phr00t / Qwen",
+   "family": "qwen-edit",
+   "released": "2026",
+   "params": "7B vision-language + FP8 transformer",
+   "license": "Qwen Image / Rapid AIO terms",
+   "commercial": "Check the Rapid AIO model card before commercial use",
+   "commercial_ok": false,
+   "gated": false,
+   "gate_url": "https://huggingface.co/Phr00t/Qwen-Image-Edit-Rapid-AIO",
+   "max_refs": 3,
+   "recommended": true,
+   "speed": "4-step, CPU-offload load",
+   "reference_weight": 1.0,
+   "uncensored": true,
+   "blurb": "Native Qwen image-edit conditioning for stronger character, outfit and pose continuity. Already distilled to four steps; compatible faster Lightning downloads require a separate base or runtime and are not selectable here.",
+   "defaults": {
+    "steps": 4,
+    "cfg": 1.0
+   },
+   "sampler": "Qwen Euler ancestral (Beta-flow)",
+   "guidance_name": "true CFG scale",
+   "files": [
+    {
+     "dir": "qwen-rapid-aio",
+     "name": "Qwen-Rapid-AIO-NSFW-v19.safetensors",
+     "url": "https://huggingface.co/Phr00t/Qwen-Image-Edit-Rapid-AIO/resolve/691024f438640508f8aa86414863fc15edfb8a84/v19/Qwen-Rapid-AIO-NSFW-v19.safetensors",
+     "size": 28431843583,
+     "sha256": "ba71575515709c9912560d1176b2386eaa49294fedc6ce57b9734aa57e91e5ac"
+    },
+    {
+     "dir": "qwen-rapid-aio",
+     "name": "README.md",
+     "url": "https://huggingface.co/Phr00t/Qwen-Image-Edit-Rapid-AIO/resolve/691024f438640508f8aa86414863fc15edfb8a84/README.md",
+     "size": 7845,
+     "sha256": "076dd4d4c35e60890088f3b31b59c5b5e80c7e796bdc8af349206eda885c7c46"
+    },
+    {
+     "dir": "qwen-rapid-aio",
+     "name": "LICENSE-Qwen-Image",
+     "url": "https://raw.githubusercontent.com/QwenLM/Qwen-Image/6b5e1f5cec987d404be5ac6657db3b9aacb56a89/LICENSE",
+     "size": 11544,
+     "sha256": "b907c8234b565e5ecefff8232dbb6f1d603fbf9a47a3176db734dcae27175d08"
+    },
+    {
+     "dir": "qwen-rapid-aio/config",
+     "name": "README.md",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/README.md",
+     "size": 7179,
+     "sha256": "9724c194bef2a6d821090f0cd65774962e8f77e3acbfb2a7cbbdd58c92049902"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/processor",
+     "name": "added_tokens.json",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/processor/added_tokens.json",
+     "size": 605,
+     "sha256": "58b54bbe36fc752f79a24a271ef66a0a0830054b4dfad94bde757d851968060b"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/processor",
+     "name": "chat_template.jinja",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/processor/chat_template.jinja",
+     "size": 1017,
+     "sha256": "a0bc6f6fc7a29a80017a433e8f03a1cc1236e838a944a2d034295a60c4f2fddb"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/processor",
+     "name": "merges.txt",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/processor/merges.txt",
+     "size": 1671853,
+     "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/processor",
+     "name": "preprocessor_config.json",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/processor/preprocessor_config.json",
+     "size": 826,
+     "sha256": "e98b81513c5d03209ac71194b3cd5303b90956097ffdb9e2aa64d6d1a13ae74e"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/processor",
+     "name": "special_tokens_map.json",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/processor/special_tokens_map.json",
+     "size": 613,
+     "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/processor",
+     "name": "tokenizer.json",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/processor/tokenizer.json",
+     "size": 11421896,
+     "sha256": "9c5ae00e602b8860cbd784ba82a8aa14e8feecec692e7076590d014d7b7fdafa"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/processor",
+     "name": "tokenizer_config.json",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/processor/tokenizer_config.json",
+     "size": 4727,
+     "sha256": "1b20115c83f30580a8c0fc330f47fad9222dccd4f739fe2d48e62ee93d28ac19"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/processor",
+     "name": "video_preprocessor_config.json",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/processor/video_preprocessor_config.json",
+     "size": 910,
+     "sha256": "6763a66890170c801051d721ac1679339c2f1a4f4e31076bc58661756670c32f"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/processor",
+     "name": "vocab.json",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/processor/vocab.json",
+     "size": 2776833,
+     "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/scheduler",
+     "name": "scheduler_config.json",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/scheduler/scheduler_config.json",
+     "size": 485,
+     "sha256": "7ee767e37bae4af31d4eb935e125bb20a2237eeecafd22af6610093865c6f587"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/text_encoder",
+     "name": "config.json",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/text_encoder/config.json",
+     "size": 3146,
+     "sha256": "4a49f14a1594fd988ab301e491ac522cd9b0e8fd1c9232b806c54568f348c1fb"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/tokenizer",
+     "name": "added_tokens.json",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/tokenizer/added_tokens.json",
+     "size": 605,
+     "sha256": "58b54bbe36fc752f79a24a271ef66a0a0830054b4dfad94bde757d851968060b"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/tokenizer",
+     "name": "chat_template.jinja",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/tokenizer/chat_template.jinja",
+     "size": 2427,
+     "sha256": "44d5f08f3f72b837eaad09f13a54c1f9f4eb58d75240334548b7fd52a5437fa5"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/tokenizer",
+     "name": "merges.txt",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/tokenizer/merges.txt",
+     "size": 1671853,
+     "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/tokenizer",
+     "name": "special_tokens_map.json",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/tokenizer/special_tokens_map.json",
+     "size": 613,
+     "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/tokenizer",
+     "name": "tokenizer_config.json",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/tokenizer/tokenizer_config.json",
+     "size": 4686,
+     "sha256": "0a04a9d7d4a62b28482bdfe726c122756de85714fb64166ace92ae75b8f57614"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/tokenizer",
+     "name": "vocab.json",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/tokenizer/vocab.json",
+     "size": 3383407,
+     "sha256": "87a257b04b17642a0688c98cd1df89c398bda4fee532d6f88b38a659ecb4ac8d"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/transformer",
+     "name": "config.json",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/transformer/config.json",
+     "size": 362,
+     "sha256": "43c02875ed3e0d4c1b3a1007b34505d0bd2c1607fc90b2107c5e39c53d187113"
+    },
+    {
+     "dir": "qwen-rapid-aio/config/vae",
+     "name": "config.json",
+     "url": "https://huggingface.co/Qwen/Qwen-Image-Edit-2511/resolve/6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9/vae/config.json",
+     "size": 730,
+     "sha256": "c448160dba5ce79c965cb075ee02e18d1c42eb6424f787e5869790d577b56a65"
+    }
+   ],
+   "total_gb": 28.45
+  },
+  {
+   "id": "cyberrealistic-xl",
+   "name": "CyberRealistic XL v10",
+   "maker": "Cyberdelia",
+   "family": "sdxl",
+   "released": "2024-02",
+   "params": "3.5B",
+   "license": "CreativeML Open RAIL-M",
+   "commercial": "Check the model card and base SDXL license before commercial use",
+   "commercial_ok": false,
+   "gated": false,
+   "gate_url": "https://huggingface.co/cyberdelia/CyberRealisticXL",
+   "max_refs": 1,
+   "recommended": true,
+   "speed": "medium",
+   "reference_weight": 0.8,
+   "uncensored": true,
+   "blurb": "Photorealistic SDXL checkpoint with mature-content capability and strong reference-image scene transfer.",
+   "defaults": {
+    "steps": 24,
+    "cfg": 6.0
+   },
+   "sampler": "DPM++ 2M Karras",
+   "guidance_name": "CFG scale",
+   "files": [
+    {
+     "dir": "checkpoints",
+     "name": "CyberRealisticXLPlay_V10.0_FP16.safetensors",
+     "url": "https://huggingface.co/cyberdelia/CyberRealisticXL/resolve/c04ae13b465d19763561a834d625a3d504a4f315/CyberRealisticXLPlay_V10.0_FP16.safetensors?download=true",
+     "size": 6938041288,
+     "sha256": "fd5e870b5bbce4bddeb64f4bb8e49c57f84ab793c0262a503f0123be435e667d"
+    },
+    {
+     "dir": "clip_vision",
+     "name": "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors",
+     "url": "https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors?download=true",
+     "size": 2528373448,
+     "sha256": ""
+    },
+    {
+     "dir": "ipadapter",
+     "name": "ip-adapter-plus-face_sdxl_vit-h.safetensors",
+     "url": "https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus-face_sdxl_vit-h.safetensors?download=true",
+     "size": 847517512,
+     "sha256": ""
+    }
+   ],
+   "total_gb": 10.31
+  }
+ ]
+}
