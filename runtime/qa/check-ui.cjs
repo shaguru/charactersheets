@@ -26,7 +26,9 @@ const { chromium } = require('playwright');
     }));
     await page.goto(process.env.FORGE_QA_URL || 'http://127.0.0.1:8288/forge/');
     await page.locator('.tile img').first().waitFor();
-    assert.equal(await page.locator('#modelList input').count(), 2);
+    assert.equal(await page.locator('#modelList input').count(), 3);
+    assert.equal(await page.locator('#sheetCards .card').count(), 7, 'presets retained');
+    assert.equal(await page.locator('#modelList input[value="minimax-h3-image"]').isEnabled(), true);
     assert.equal(await page.locator('.tile img').count(), 2);
     assert.match(await page.locator('#hw').textContent(), /^CUDA enabled/);
 
@@ -55,8 +57,27 @@ const { chromium } = require('playwright');
     assert.equal(await page.locator('#lightbox').isVisible(), false);
 
     await page.getByRole('button', { name: /^Models/ }).click();
-    assert.equal(await page.locator('.mcard').count(), 2);
+    assert.equal(await page.locator('.mcard').count(), 4);
     await page.getByRole('button', { name: 'Studio', exact: true }).click();
+    await open();
+    await page.locator('#lbVideoBtn').click();
+    assert.equal(await page.locator('#lightbox').isVisible(), false);
+    assert.equal(await page.locator('[data-mode="video"]').first().getAttribute('class'), 'on');
+    assert.equal(await page.locator('#refs img').count(), 1);
+    assert.equal(await page.locator('#count').inputValue(), '1');
+    assert.match(await page.locator('#modelList').innerText(), /MiniMax H3 Video/);
+    await page.locator('#videoPrompt').fill('The character waves to the camera.');
+    let videoRequest;
+    await page.route('**/forge/api/queue', async route => {
+      videoRequest=route.request().postDataJSON();
+      await route.fulfill({json:{queued:1,errors:[],batch:'qa-video'}});
+    });
+    await Promise.all([page.waitForResponse(r=>r.url().endsWith('/forge/api/queue')),page.locator('#queueBtn').click()]);
+    assert.equal(videoRequest.mode,'video');assert.equal(videoRequest.seconds,5);
+    assert.equal(videoRequest.refs.length,1);assert.match(videoRequest.refs[0],/\[output\]/);
+    await page.locator('button[data-mode="sheet"]').click();
+    assert.equal(await page.locator('#sheetCards').isVisible(),true);
+    assert.equal(await page.locator('#modelList input[value="qwen-rapid-aio"]').isChecked(),true,'Qwen selection preserved');
     for (const width of [1600, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `overflow at ${width}px`);

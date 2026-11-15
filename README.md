@@ -1,6 +1,6 @@
 # Character Forge
 
-Generate character sheets and scenes locally with Qwen Rapid AIO v19, reference images, and a browser studio. The app runs directly on PyTorch CUDA and Diffusers.
+Generate character sheets and scenes with Qwen Rapid AIO v19 or MiniMax H3-Image, then make H3 videos from selected images in the same browser studio. Everything renders locally with CUDA and CPU offload.
 
 ## Quick start for Windows
 
@@ -21,7 +21,9 @@ One click performs the whole setup:
 5. Downloads the Qwen Rapid AIO v19 checkpoint and its tokenizer/configuration files. New downloads are checked against the catalog sizes and SHA-256 hashes.
 6. Starts the server and opens **http://127.0.0.1:8288/forge/** in your browser.
 
-First setup downloads roughly **33 GB**, mostly the 28.4 GB model. Allow time for downloads, installation and checksum verification. Leave the console window open while using the app. Close it or press Ctrl+C to stop.
+Forge alone downloads roughly **33 GB**, mostly the 28.4 GB Qwen model. For **Qwen + MiniMax H3-Image + H3 Video**, double-click **INSTALL_ALL.bat**. MiniMax adds about **107 GiB of model files**, plus its environment; allow roughly **175 GiB free** for a full clean install including headroom. An existing sibling `MINIMAX_VIDEO_Maker` installation is reused. Allow time for downloads and verification. Leave the console window open while using the app. Close it or press Ctrl+C to stop.
+
+To add MiniMax to an existing Forge installation, run **SETUP_MINIMAX.bat**. Use `SETUP_MINIMAX.bat -ImageOnly` for just H3-Image. To store its environment and models on a larger drive, use `SETUP_MINIMAX.bat -RuntimeDirectory I:\CharacterForge_MiniMax`. The one-click Qwen installer remains **INSTALL.bat**.
 
 After installation, double-click **START.bat**. It checks the local environment and reuses existing packages and models. An interrupted model download resumes when you run it again. **INSTALL.bat** is also safe to rerun. **SETUP.bat** installs/checks everything without starting the server.
 
@@ -38,6 +40,8 @@ After installation, double-click **START.bat**. It checks the local environment 
 ## Use the studio
 
 - Drop or paste a character reference. Qwen accepts up to three references for character, outfit or location.
+- Keep the original character-sheet presets, scene mode, references, batch controls and gallery. In **Models**, select **Qwen Rapid AIO** or **MiniMax H3-Image** for still images. MiniMax uses the existing GGUF runtime with CUDA and CPU offload; its six-step recipe is fixed.
+- Switch **Mode** to **Video** to animate the first selected image with **MiniMax H3 Video**. Set motion, length and resolution, then queue. The image remains in the same project gallery and the resulting MP4 appears in the gallery.
 - Pick a sheet layout, describe a scene, or write a free prompt. Layout presets are prompt templates; exact poses and panel arrangements can vary.
 - Use dynamic choices such as `[small | big | long]` to vary each generated image. This also works in the negative prompt.
 - Qwen defaults to four steps and guidance 1.0. Set guidance above 1.0 to enable negative prompting.
@@ -45,6 +49,10 @@ After installation, double-click **START.bat**. It checks the local environment 
 - Click a gallery image to enlarge it. **Click the enlarged image again to close**, click the surrounding background, or press Escape. Arrow keys move between images.
 - Favourite, download, reuse a reference, load saved settings, or select images to delete. The current project's entire gallery can also be deleted.
 - Use **Unload model** to release cached RAM and VRAM after a batch. **Stop all** cancels queued work and interrupts the current render at its next cancellation checkpoint.
+
+MiniMax H3-Image uses a quantized derivative (`UD-Q4_K_XL` image transformer plus `Q4_K_M` text encoder) and the official VAE, about 31.8 GiB. H3 Video reuses the existing `abhishekchohan/minimax-h3-int8` cache, about 75 GiB. Jobs share an OS GPU lock; an idle Forge model is unloaded before MiniMax starts, and an active render must finish first.
+
+Open a gallery image and click **Create video** to carry it into Video mode. H3 uses it as a visual reference, so the opening frame may differ. The video configuration is tested with **24 GB VRAM / 64 GB RAM**; Qwen's 8 GB low-VRAM support does not imply that H3 video fits an 8 GB GPU. An SSD substantially reduces cold loading time.
 
 ## Optional SDXL model
 

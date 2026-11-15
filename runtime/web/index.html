@@ -43,6 +43,7 @@
         <button data-mode="sheet" class="on">Character sheet</button>
         <button data-mode="scene">Place in scene</button>
         <button data-mode="free">Free prompt</button>
+        <button data-mode="video">Video</button>
       </div>
 
       <div class="mode" data-mode="sheet">
@@ -66,7 +67,15 @@
       <div class="mode hidden" data-mode="free">
         <label class="lbl">Prompt (sent as written)</label>
         <textarea id="raw" rows="6" placeholder="The character standing on a windswept hill, wearing a navy jacket, soft storybook illustration…"></textarea>
-        <p class="hint"><code>{CHAR}</code> means the character in the first image. Use <code>{REF2}</code> and <code>{REF3}</code> for extra Qwen references.</p>
+        <p class="hint"><code>{CHAR}</code> means the character in the first image. Use <code>{REF2}</code> and <code>{REF3}</code> for extra Qwen or H3-Image references.</p>
+      </div>
+      <div class="mode hidden" data-mode="video">
+        <label class="lbl">Motion &amp; camera</label>
+        <textarea id="videoPrompt" rows="5" placeholder="The character turns toward the camera, smiles and waves. The camera gently pushes closer. Keep the character's appearance consistent."></textarea>
+        <div class="row"><label class="lbl inline">Length</label><select id="videoSeconds"><option value="5">5 seconds</option><option value="7">7 seconds</option><option value="10">10 seconds</option><option value="15">15 seconds</option></select></div>
+        <div class="row"><label class="lbl inline">Resolution</label><select id="videoSize"><option value="fast">Fast · 768×416</option><option value="standard">Standard · 960×544</option><option value="native">Native · 1344×768</option><option value="portrait">Portrait · 544×960</option></select></div>
+        <div class="row"><label class="lbl inline">Video steps</label><input id="videoSteps" type="number" min="4" max="50" value="12" class="w80"></div>
+        <p class="hint">Use the first reference above, or open any gallery image and choose Create video. H3 uses the image as a visual reference; the first frame can change. Start with 5 seconds and Fast resolution. Cold loading and rendering take several minutes.</p>
       </div>
     </section>
 
@@ -78,13 +87,13 @@
     <section>
       <h3>4 · Batch</h3>
       <div class="row">
-        <label class="lbl inline">Images per model</label>
+        <label class="lbl inline" id="countLabel">Images per model</label>
         <input type="number" id="count" min="1" max="200" value="4">
       </div>
       <div class="chips" id="countChips">
         <button>1</button><button>4</button><button>10</button><button>20</button><button>30</button><button>50</button>
       </div>
-      <div class="row">
+      <div class="row image-settings">
         <label class="lbl inline">Size</label>
         <select id="size"></select>
       </div>
@@ -92,7 +101,7 @@
       <div class="row hidden">
         <label class="toggle"><input type="checkbox" id="fast"> Fast mode <small class="dim">(Lightning 4-step on Qwen models)</small></label>
       </div>
-      <details open>
+      <details open class="image-settings">
         <summary>Sampling & output settings</summary>
         <div class="row"><label class="lbl inline">Seeds</label>
           <select id="seedMode"><option value="random">Random each image</option><option value="fixed">Fixed start, +1 each</option></select>
@@ -162,6 +171,7 @@
   <button class="lbclose" id="lbClose">✕</button>
   <button class="lbnav prev" id="lbPrev">‹</button>
   <img id="lbImg" alt="Generated image" title="Click image to close">
+  <video id="lbVideo" class="hidden" controls playsinline></video>
   <button class="lbnav next" id="lbNext">›</button>
   <div class="lbinfo">
     <div class="lbtitle" id="lbTitle"></div>
@@ -169,6 +179,7 @@
     <div class="lbbtns">
       <button id="lbFav">★ Favourite <kbd>F</kbd></button>
       <button id="lbRef">Use as reference <kbd>R</kbd></button>
+      <button id="lbVideoBtn">Create video</button>
       <button id="lbMore">More like this ×4</button>
       <button id="lbLoad">Load settings</button>
       <a id="lbDl" class="btn" download>Download</a>
@@ -177,6 +188,6 @@
   </div>
 </div>
 
-<script src="/forge/static/app.js?v=20261102"></script>
+<script src="/forge/static/app.js?v=20261116"></script>
 </body>
 </html>

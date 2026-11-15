@@ -9,6 +9,12 @@
 /runtime/.venv/
 /runtime/.requirements.sha256
 /runtime/.install.lock
+/runtime/minimax_app/runtime/
+/runtime/minimax_app/models/
+/runtime/minimax_app/projects/
+/runtime/minimax_app/logs/
+/runtime/minimax_app/settings.json
+*.egg-info/
 *.whl
 *.nupkg
 *.part

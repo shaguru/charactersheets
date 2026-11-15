@@ -1,0 +1,14 @@
+[project]
+name = "mvm"
+version = "0.1.0"
+description = "MiniMax Video Maker: local MiniMax-H3 music video + character sheet tool (no ComfyUI)"
+requires-python = ">=3.11"
+
+[project.scripts]
+mvm = "mvm.cli:main"
+
+[tool.setuptools]
+packages = ["mvm"]
+
+[tool.setuptools.package-data]
+mvm = ["web/*"]

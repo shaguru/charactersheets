@@ -20,6 +20,7 @@ import threading
 import time
 import traceback
 import uuid
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image, ImageOps, PngImagePlugin
 import uvicorn
 import downloader
+import minimax_bridge
 from memory_policy import limit_dimensions, presets_for_profile, profile_for_vram
 
 # Generation uses verified local files. Setup is the only code that fetches
@@ -57,6 +59,7 @@ with CATALOG_PATH.open("r", encoding="utf-8-sig") as f:
     CATALOG = json.load(f)
 with PRESETS.open("r", encoding="utf-8") as f:
     PRESET_DATA = json.load(f)
+CATALOG["models"].extend([minimax_bridge.IMAGE_MODEL, minimax_bridge.VIDEO_MODEL])
 MEMORY_PROFILE = profile_for_vram(
     torch.cuda.get_device_properties(0).total_memory if torch.cuda.is_available() else 0,
     os.environ.get("FORGE_LOW_VRAM", "auto"),
@@ -109,6 +112,8 @@ def download(body: dict[str, Any]):
     mid = body.get("id")
     if not model(mid):
         raise HTTPException(400, "Unknown model")
+    if model(mid).get("external"):
+        raise HTTPException(400, "Run SETUP_MINIMAX.bat in the Character Forge folder, then refresh this page.")
     with STATE_LOCK:
         if mid == DL["current"] or mid in DL["queue"]:
             return {"ok": True}
@@ -254,6 +259,8 @@ def file_status(f: dict[str, Any]) -> tuple[str, int]:
 
 
 def model_status(m: dict[str, Any]) -> dict[str, Any]:
+    if m.get("external"):
+        return minimax_bridge.model_status("video" if m["family"] == "minimax-video" else "image")
     total = done = needed = 0
     missing = 0
     for f in m.get("files", []):
@@ -320,10 +327,24 @@ def model_prompt(prompt, m, refs):
     """Resolve extra image placeholders for native multi-image conditioning."""
     def replace(match):
         index = int(match.group(1))
-        if m.get("family") != "qwen-edit" or not 2 <= index <= len(refs):
-            raise ValueError(f"{match.group(0)} requires a corresponding Qwen reference image.")
-        return f"image {index}"
-    return re.sub(r"\{REF(\d+)\}", replace, prompt)
+        if m.get("family") not in ("qwen-edit", "minimax-image") or not 2 <= index <= len(refs):
+            raise ValueError(f"{match.group(0)} requires a corresponding Qwen or H3-Image reference image.")
+        return f"<Picture {index}>" if m.get("family") == "minimax-image" else f"image {index}"
+    resolved = re.sub(r"\{REF(\d+)\}", replace, prompt)
+    if m.get("family") == "minimax-image":
+        resolved = resolved.replace("the reference character", "the character in <Picture 1>")
+        if refs and "<Picture 1>" not in resolved:
+            resolved = "Edit <Picture 1>. " + resolved
+    return resolved
+
+
+def release_pipeline():
+    global PIPE, PIPE_MODEL, PIPE_FAMILY
+    PIPE = None
+    PIPE_MODEL = PIPE_FAMILY = None
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
 def image_for_job(job: dict[str, Any]) -> dict[str, str]:
@@ -438,8 +459,16 @@ def render(job: dict[str, Any]) -> None:
         CURRENT = job
         job.update(status="running", stage="loading model", progress=0, started=time.time(), updated=time.time(), step=0, steps=int(job["steps"]))
     try:
-        with PIPE_LOCK:
+        external = bool(model(job["model"]).get("external"))
+        with PIPE_LOCK, (nullcontext() if external else minimax_bridge.gpu_slot()):
             check_cancel()
+            if external:
+                release_pipeline()
+                update(job, "loading MiniMax", progress=0)
+                minimax_bridge.run(job, [ref_path(r) for r in job["refs"]],
+                                   lambda stage, **fields: update(job, stage, **fields), check_cancel)
+                update(job, "done", status="done", progress=1.0, step=job["steps"], finished=time.time())
+                return
             pipe = load_pipeline(job["model"], job)
             update(job, "encoding reference", progress=0.05)
             with Image.open(ref_path(job["refs"][0])) as source:
@@ -586,7 +615,9 @@ def config():
         mm.update(model_status(m))
         mm["download"] = DL["status"].get(m["id"])
         ms.append(mm)
-    return {"models": ms, "presets": presets_for_profile(PRESET_DATA, MEMORY_PROFILE),
+    presets = presets_for_profile(PRESET_DATA, MEMORY_PROFILE)
+    return {"models": ms, "presets": presets,
+            "minimax": minimax_bridge.status(),
             "memory_profile": MEMORY_PROFILE, "has_token": bool(read_settings().get("hf_token")),
             "free_gb": round(shutil.disk_usage(MODELS).free / 1e9, 1),
             "projects": projects, "last_project": read_settings().get("last_project") or "My_Project",
@@ -601,10 +632,11 @@ def runtime_status() -> dict[str, Any]:
         current = dict(CURRENT) if CURRENT else None
         queued = len(QUEUE)
         loaded = PIPE is not None
-        model_id = (current.get("model") if current and str(current.get("stage", "")).startswith(("loading", "assembling", "moving")) else PIPE_MODEL)
+        external = bool(current and model(current.get("model", "")) and model(current["model"]).get("external"))
+        model_id = current.get("model") if external or (current and str(current.get("stage", "")).startswith(("loading", "assembling", "moving"))) else PIPE_MODEL
         family = PIPE_FAMILY
     loading = bool(current and str(current.get("stage", "")).startswith(("loading", "assembling", "moving")))
-    state = "loading" if loading else ("loaded" if loaded else "unloaded")
+    state = "loading" if loading else ("running" if external else ("loaded" if loaded else "unloaded"))
     return {"state": state, "model_id": model_id, "model_name": model(model_id)["name"] if model_id and model(model_id) else None,
             "family": family, "queue": queued, "busy": bool(current)}
 
@@ -651,17 +683,20 @@ def queue(body: dict[str, Any]):
     if not torch.cuda.is_available():
         raise HTTPException(503, "CUDA is unavailable. Check the NVIDIA driver and local runtime; generation requires the GPU.")
     refs = [r for r in (body.get("refs") or []) if r]
-    if not refs:
-        raise HTTPException(400, "Drop at least one character image first.")
+    if body.get("mode") == "video":
+        return queue_video(body)
     mids = body.get("models") or []
+    text_only = body.get("mode") == "free" and mids and all(mid == "minimax-h3-image" for mid in mids)
+    if not refs and not text_only:
+        raise HTTPException(400, "Drop at least one character image first.")
     if not mids:
         raise HTTPException(400, "Pick a downloaded model first.")
     if len(refs) > 3:
         raise HTTPException(400, "Use at most three reference images.")
     selected_families = {model(mid).get("family") for mid in mids if model(mid)}
-    if "qwen-edit" not in selected_families and len(refs) != 1:
+    if not selected_families.intersection({"qwen-edit", "minimax-image"}) and len(refs) != 1:
         raise HTTPException(400, "The SDXL models use one character reference. Qwen Rapid AIO supports up to three.")
-    reference_path = ref_path(refs[0])
+    reference_path = ref_path(refs[0]) if refs else None
     if any(not ref_path(ref).is_file() for ref in refs):
         raise HTTPException(400, "Reference image is missing. Drop the image again.")
     mode = body.get("mode", "sheet")
@@ -677,8 +712,11 @@ def queue(body: dict[str, Any]):
         sh = next((x for x in PRESET_DATA["sheets"] if x["id"] == body.get("sheet")), PRESET_DATA["sheets"][0])
         size = PRESET_DATA["sizes"][sh["size"]]
     try:
-        with Image.open(reference_path) as ref:
-            rw, rh = ImageOps.exif_transpose(ref).size
+        if reference_path:
+            with Image.open(reference_path) as ref:
+                rw, rh = ImageOps.exif_transpose(ref).size
+        else:
+            rw = rh = 1024
         ratio = (1024 * 1024 / (rw * rh)) ** 0.5
         w = int(body.get("width") or size["w"] or round(rw * ratio / 8) * 8)
         h = int(body.get("height") or size["h"] or round(rh * ratio / 8) * 8)
@@ -701,6 +739,9 @@ def queue(body: dict[str, Any]):
     errors = []
     for mid in dict.fromkeys(mids):
         m = model(mid)
+        if m and m["family"] == "minimax-video":
+            errors.append("Select Video mode to use MiniMax H3 Video.")
+            continue
         if not m or not model_status(m)["installed"]:
             errors.append(f"{mid}: model is not downloaded")
             continue
@@ -716,8 +757,13 @@ def queue(body: dict[str, Any]):
             raise HTTPException(400, str(exc))
         if not 1 <= steps <= 100 or not 1 <= cfg <= 20:
             raise HTTPException(400, "Use 1–100 steps and CFG from 1 to 20")
+        if m["family"] == "minimax-image":
+            steps, cfg = 6, 1.0
+            notices.append("MiniMax H3-Image uses its fixed 6-step, guidance-1 recipe; negative prompts are unused.")
         for k in range(count):
             seed = seed0 + k if body.get("seed_mode") == "fixed" else random.randint(1, 2**48)
+            if m["family"] == "minimax-image":
+                seed %= 2**31
             jid = f"{batch}_{mid}_{k:03d}"
             out = OUTPUT / project / mode / f"{jid}_{seed}.png"
             dynamic_prompt = expand_dynamic_prompt(resolved_prompt, seed)
@@ -732,6 +778,8 @@ def queue(body: dict[str, Any]):
                    "created": time.time(), "req": {k: v for k, v in body.items() if k not in ("models", "count", "seed", "seed_mode")},
                    "status": "queued", "stage": "queued", "progress": 0.0}
             job["prompt"] = dynamic_prompt
+            if m["family"] == "minimax-image":
+                job["width"], job["height"] = max(256, round(w / 32) * 32), max(256, round(h / 32) * 32)
             with STATE_LOCK:
                 JOBS.append(job)
                 append_job(job)
@@ -740,6 +788,47 @@ def queue(body: dict[str, Any]):
     WORKER_WAKE.set()
     save_settings({"last_project": project})
     return {"queued": queued, "errors": errors, "batch": batch, "notices": notices}
+
+
+def queue_video(body):
+    if not minimax_bridge.status()["models"].get("video"):
+        raise HTTPException(400, "MiniMax video is not installed in the configured MiniMax folder.")
+    refs = [r for r in body.get("refs", []) if r]
+    if not refs or not ref_path(refs[0]).is_file():
+        raise HTTPException(400, "Select a gallery image with Create video, or upload a reference image.")
+    prompt = str(body.get("video_prompt") or "").strip()
+    if not prompt:
+        raise HTTPException(400, "Describe the motion and camera first.")
+    try:
+        seconds = float(body.get("seconds", 5))
+        steps = int(body.get("video_steps", 12))
+        count = int(body.get("count") or 1)
+        seed = int(body["seed"]) if body.get("seed") is not None else random.randint(1, 2**31 - 1)
+    except (ValueError, TypeError):
+        raise HTTPException(400, "Invalid video settings")
+    if not 5 <= seconds <= 15 or not 4 <= steps <= 50 or not 1 <= count <= 20 or not 0 <= seed < 2**31:
+        raise HTTPException(400, "Video: 5–15 seconds, 4–50 steps, 1–20 clips, seed below 2147483648.")
+    sizes = {"fast": (768, 416), "standard": (960, 544), "native": (1344, 768), "portrait": (544, 960)}
+    w, h = sizes.get(body.get("video_size", "fast"), sizes["fast"])
+    project = safe_name(body.get("project"))
+    batch = time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
+    prompt = prompt if "<Picture 1>" in prompt else "Use the character and visual style of <Picture 1>. " + prompt
+    with STATE_LOCK:
+        for i in range(count):
+            jid = f"{batch}_minimax-h3-video_{i:03d}"
+            job = {"id": jid, "project": project, "batch": batch, "mode": "video", "model": "minimax-h3-video",
+                   "model_name": "MiniMax H3 Video", "refs": refs[:1], "prompt": expand_dynamic_prompt(prompt, seed+i),
+                   "seconds": seconds, "width": w, "height": h, "steps": steps, "cfg": 1.0,
+                   "seed": (seed+i) % 2**31, "sampler": "H3 Ref2VA", "guidance_name": "distilled guidance",
+                   "output_file": str(OUTPUT / project / "video" / f"{jid}.mp4"), "created": time.time(),
+                   "req": dict(body), "status": "queued", "stage": "queued", "progress": 0.0}
+            JOBS.append(job)
+            append_job(job)
+            QUEUE.append(job)
+    WORKER_WAKE.set()
+    save_settings({"last_project": project})
+    return {"queued": count, "errors": [], "batch": batch,
+            "notices": ["MiniMax uses this image as a visual reference. Cold loading and video rendering take several minutes."]}
 
 
 @app.get("/forge/api/jobs")

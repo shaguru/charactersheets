@@ -46,6 +46,7 @@ function renderRuntime(runtime) {
   const labels = {
     unloaded: 'Model: unloaded',
     loading: `Loading: ${runtime.model_name || 'model'}…`,
+    running: `Running: ${runtime.model_name || 'model'}`,
     loaded: `Loaded: ${runtime.model_name || 'model'}`,
   };
   status.textContent = labels[runtime.state] || 'Model: unknown';
@@ -54,7 +55,8 @@ function renderRuntime(runtime) {
   if (detail) detail.textContent = runtime.state === 'loaded'
     ? `${runtime.model_name} is cached${runtime.queue ? ` · ${runtime.queue} queued` : ''}.`
     : runtime.state === 'loading' ? `Loading ${runtime.model_name || 'the selected model'}; progress is shown in the Studio header.`
-    : 'No model loaded. It will load when you queue an image.';
+    : runtime.state === 'running' ? `${runtime.model_name} is generating; progress is shown in the Studio header.`
+    : 'No model loaded. It will load when you queue an image or video.';
   if (unload) { unload.disabled = runtime.state !== 'loaded' || runtime.busy || runtime.queue > 0; unload.title = unload.disabled && runtime.state === 'loaded' ? 'Stop renders and clear the queue before unloading.' : ''; }
 }
 
@@ -82,17 +84,18 @@ function renderSizes() {
 
 function licTag(m) { return m.commercial_ok ? '<span class="tag ok">commercial OK</span>' : '<span class="tag nc">check license</span>'; }
 function selectedMaxRefs() {
+  if (S.mode === 'video') return 1;
   const selected = (S.models || []).map(id => S.cfg.models.find(m => m.id === id)).filter(Boolean);
   return selected.length ? Math.max(...selected.map(m => m.max_refs)) : 1;
 }
 
 function renderModelList() {
-  const ms = S.cfg.models;
-  if (S.models === null) S.models = ms.filter(m => m.installed && m.recommended).map(m => m.id);
-  S.models = S.models.filter(id => ms.some(m => m.id === id));
+  const ms = S.cfg.models.filter(m => (S.mode === 'video') === (m.family === 'minimax-video'));
+  if (S.models === null) S.models = S.cfg.models.filter(m => m.family!=='minimax-video'&&m.installed && m.recommended).map(m => m.id);
+  S.models = S.models.filter(id => S.cfg.models.some(m => m.id === id&&m.family!=='minimax-video'));
   $('#modelList').innerHTML = ms.map(m => `
     <label class="mrow ${m.installed ? '' : 'off'}">
-      <input type="checkbox" value="${m.id}" ${S.models.includes(m.id) && m.installed ? 'checked' : ''} ${m.installed ? '' : 'disabled'}>
+      <input type="checkbox" value="${m.id}" ${(S.mode==='video'||S.models.includes(m.id)) && m.installed ? 'checked' : ''} ${m.installed&&S.mode!=='video' ? '' : 'disabled'}>
       <div><div class="nm">${esc(m.name)} ${m.recommended ? '<span class="tag rec">top pick</span>' : ''}${licTag(m)}</div>
       <div class="meta">${m.installed ? `${esc(m.params)} · ${esc(m.speed)} · up to ${m.max_refs} refs` : `Not downloaded (${m.total_gb} GB): get it in the Models tab`}</div></div>
     </label>`).join('');
@@ -101,7 +104,7 @@ function renderModelList() {
     renderRefs(); updateSamplingHint();
   });
   const mf = $('#modelFilter'), cur = mf.value;
-  mf.innerHTML = '<option value="">All models</option>' + ms.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
+  mf.innerHTML = '<option value="">All models</option>' + S.cfg.models.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
   mf.value = cur;
   const missing = ms.filter(m => !m.installed).length;
   const anyInstalled = ms.some(m => m.installed);
@@ -114,7 +117,10 @@ function updateSamplingHint() {
   const selected = (S.models || []).map(id => S.cfg.models.find(m => m.id === id)).filter(Boolean);
   const qwen = selected.find(m => m.family === 'qwen-edit');
   const hint = $('#samplingHint');
-  if (qwen) {
+  if(selected.some(m=>m.family==='minimax-image')){
+    hint.textContent='MiniMax H3-Image uses a fixed 6-step Euler schedule and guidance 1.0. The same character-sheet and scene presets apply. Steps, CFG and negative prompts above are used by Qwen/SDXL only.';
+    $('#steps').placeholder='6 for H3 / model default';$('#cfg').placeholder='1.0 for H3';
+  } else if (qwen) {
     hint.textContent = 'Qwen Rapid AIO: fixed Qwen Euler ancestral Beta-flow sampler · 4 steps default · guidance (true CFG) 1.0 default. Higher steps can improve detail but take longer; guidance above 1 enables negative prompting.';
     $('#steps').placeholder = '4 (default)'; $('#cfg').placeholder = '1.0 (default)';
   } else {
@@ -136,7 +142,7 @@ function renderModelCards() {
       act = `<div style="flex:1"><div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div>
              <div class="facts">${gb(d.done)} / ${gb(d.total)} GB · ${esc(d.file || '')}</div></div><button data-cancel>Cancel</button>`;
     } else if (d.state === 'queued') act = `<span class="dim">Queued for download…</span>`;
-    else {
+    else if(m.external){act='<span class="dim">Run SETUP_MINIMAX.bat in your Character Forge folder, then refresh this page.</span>';} else {
       const need = m.bytes_needed / 1e9;
       const tooBig = need > S.cfg.free_gb - 1;
       act = `<button data-dl="${m.id}" ${tooBig ? 'disabled' : ''}>⬇ Download ${need.toFixed(1)} GB</button>
@@ -177,7 +183,7 @@ function renderRefs() {
   const max = selectedMaxRefs();
   $('.drop-hint').innerHTML = S.refs.length ? (max > 1 ? `Drop more reference images (${S.refs.length}/${max})` : 'Drop an image to replace the character reference') :
     'Drop the character image here<br><small>or click to choose · Ctrl+V to paste · first image = the character</small>';
-  $('#refHint').innerHTML = max > 1 ? `Qwen Rapid AIO can use up to ${max} references for identity, outfit or location. The SDXL alternatives use the first image only.` : 'The selected SDXL models use one character reference. Describe clothing, props and locations in the prompt.';
+  $('#refHint').textContent = S.mode==='video'?'The first image is the video reference. You can use a generated Qwen or MiniMax image.':max>1?`Qwen and MiniMax H3-Image can use up to ${max} references for identity, outfit or location. SDXL uses the first image only.`:'Drop a character image. MiniMax can also generate from text in Free prompt mode.';
 }
 
 async function uploadFiles(files) {
@@ -223,17 +229,25 @@ function formReq() {
     size: $('#size').value, fast: $('#fast').checked, seed_mode: $('#seedMode').value, seed: n('#seed'),
     steps: n('#steps'), cfg: n('#cfg'), width: n('#w'), height: n('#h'),
     reference_strength: Number($('#referenceStrength').value),
+    video_prompt: $('#videoPrompt').value, seconds: Number($('#videoSeconds').value),
+    video_size: $('#videoSize').value, video_steps: Number($('#videoSteps').value),
   };
 }
 
 function updateQueueBtn() {
   const n = Math.max(1, Number($('#count').value) || 1);
   const ms = (S.models || []).filter(id => S.cfg && S.cfg.models.find(m => m.id === id && m.installed));
+  if(S.mode==='video'){
+    const ready=S.cfg?.models.some(m=>m.family==='minimax-video'&&m.installed);
+    $('#queueBtn').textContent=!ready?'MiniMax video is not installed':!S.refs.length?'Select an image to animate':`Queue ${n} video${n>1?'s':''}`;
+    $('#queueBtn').disabled=!ready||!S.refs.length;return;
+  }
   const total = n * ms.length;
   const b = $('#queueBtn');
   b.textContent = total ? `Queue ${total} image${total > 1 ? 's' : ''}${ms.length > 1 ? ` (${n} × ${ms.length} models)` : ''}` : 'Pick a downloaded model';
-  b.disabled = !total || !S.refs.length;
-  if (!S.refs.length && total) b.textContent = 'Drop a character image first';
+  const textOnly=S.mode==='free'&&ms.length>0&&ms.every(id=>id==='minimax-h3-image');
+  b.disabled = !total || (!S.refs.length&&!textOnly);
+  if (!S.refs.length && total&&!textOnly) b.textContent = 'Drop a character image first';
   const sdxlOnly = ms.length > 0 && ms.every(id => S.cfg.models.find(m => m.id === id).family === 'sdxl');
   $('#referenceStrength').disabled = !sdxlOnly;
   $('#referenceStrength').title = sdxlOnly ? '' : 'Only used by the SDXL face adapter. Qwen uses native image-edit conditioning.';
@@ -304,7 +318,7 @@ function renderGrid() {
   if (queued.length) tiles.push(`<div class="tile pending"><b style="font-size:22px;color:var(--txt)">${queued.length}</b>waiting in queue</div>`);
   errors.forEach(j => tiles.push(`<div class="tile pending error" title="${esc(j.error)}">⚠ ${esc(j.model_name)} failed<br><small>${esc((j.error || '').slice(0, 140))}</small></div>`));
   done.forEach((j, i) => tiles.push(`<div class="tile" data-i="${i}" style="--ar:${(j.width || 1) / (j.height || 1)}">
-      <img loading="lazy" src="${viewUrl(j.images[0])}" alt="">
+      ${j.mode==='video'?`<video preload="metadata" src="${viewUrl(j.images[0])}"></video><span class="playbadge">▶ ${j.seconds||5}s</span>`:`<img loading="lazy" src="${viewUrl(j.images[0])}" alt="">`}
       <span class="mb">${esc(j.model_name)}${j.fast ? ' ⚡' : ''}</span>
       <input class="pick" type="checkbox" data-id="${esc(j.id)}" ${S.selected.has(j.id) ? 'checked' : ''} aria-label="Select image">
       <button class="star ${j.fav ? 'on' : ''}" data-id="${j.id}">★</button>
@@ -312,7 +326,7 @@ function renderGrid() {
       <div class="cap"><span>${esc(j.mode)}${j.sheet && j.mode === 'sheet' ? ' · ' + esc(j.sheet) : ''}</span><span>seed ${j.seed}</span></div></div>`));
   $('#grid').innerHTML = tiles.join('');
   $('#empty').classList.toggle('hidden', tiles.length > 0);
-  $('#gcount').textContent = `${done.length} image${done.length === 1 ? '' : 's'}`;
+  $('#gcount').textContent = `${done.length} result${done.length === 1 ? '' : 's'}`;
   $$('#grid .tile[data-i]').forEach(t => t.onclick = (e) => { if (!e.target.classList.contains('star') && !e.target.classList.contains('pick') && !e.target.classList.contains('remove')) openLb(+t.dataset.i); });
   $$('#grid .pick').forEach(b => b.onchange = () => {
     if (b.checked) S.selected.add(b.dataset.id); else S.selected.delete(b.dataset.id);
@@ -364,11 +378,13 @@ async function deleteImages(all = false) {
 // ------------------------------------------------------------------ lightbox
 let lbList = [];
 function openLb(i) { lbList = visibleDone(); S.lb = i; $('#lightbox').classList.remove('hidden'); renderLb(); }
-function closeLb() { S.lb = -1; $('#lightbox').classList.add('hidden'); }
+function closeLb() { S.lb = -1; $('#lbVideo').pause(); $('#lightbox').classList.add('hidden'); }
 function renderLb() {
   const j = lbList[S.lb]; if (!j) return closeLb();
   const img = j.images[0];
-  $('#lbImg').src = viewUrl(img);
+  const video=j.mode==='video';$('#lbImg').classList.toggle('hidden',video);$('#lbVideo').classList.toggle('hidden',!video);
+  $('#lbVideo').pause();if(video)$('#lbVideo').src=viewUrl(img);else $('#lbImg').src=viewUrl(img);
+  $('#lbRef').classList.toggle('hidden',video);$('#lbVideoBtn').classList.toggle('hidden',video);$('#lbMore').classList.toggle('hidden',video);
   $('#lbDl').href = viewUrl(img); $('#lbDl').setAttribute('download', img.filename);
   $('#lbTitle').textContent = `${j.model_name}${j.fast ? ' ⚡ fast' : ''}`;
   $('#lbMeta').innerHTML = `${esc(j.mode)}${j.sheet && j.mode === 'sheet' ? ' · ' + esc(j.sheet) : ''}<br>seed ${j.seed} · ${j.steps} steps · ${esc(j.sampler || 'default sampler')} · ${esc(j.guidance_name || 'CFG')} ${j.cfg}<br>${j.width ? j.width + '×' + j.height : 'ref size'}<br>
@@ -378,11 +394,17 @@ function renderLb() {
 }
 function lbUseRef() {
   const j = lbList[S.lb]; const img = j.images[0];
-  if (S.refs.length >= selectedMaxRefs()) S.refs.shift();
+  if(j.mode==='video')return;
+  if(selectedMaxRefs()===1)S.refs=[];
+  while (S.refs.length >= selectedMaxRefs()) S.refs.shift();
   S.refs.push({ name: `${img.subfolder}/${img.filename} [output]`, url: viewUrl(img) });
   renderRefs(); updateQueueBtn();
   $('#queueMsg').className = 'msg ok'; $('#queueMsg').textContent = `Using ${img.filename} as the character reference.`;
 }
+function lbCreateVideo(){const j=lbList[S.lb];if(!j||j.mode==='video')return;const img=j.images[0];
+ S.refs=[{name:`${img.subfolder}/${img.filename} [output]`,url:viewUrl(img)}];closeLb();setMode('video');renderRefs();updateQueueBtn();
+ $('#queueMsg').className='msg ok';$('#queueMsg').textContent=`Ready to animate ${img.filename}. Describe the motion, then queue a video.`;
+ $('#videoPrompt').focus();}
 function lbLoad() {
   const j = lbList[S.lb], r = j.req || {};
   if (r.mode) setMode(r.mode);
@@ -395,7 +417,8 @@ function lbLoad() {
   $('#steps').value = j.steps || ''; $('#cfg').value = j.cfg || '';
   $('#w').value = j.width || ''; $('#h').value = j.height || '';
   $('#referenceStrength').value = j.reference_strength ?? 0.65;
-  S.models = [j.model]; store.set('models', S.models); renderModelList(); renderRefs();
+  if(j.mode==='video'){$('#videoPrompt').value=r.video_prompt||j.prompt;$('#videoSeconds').value=r.seconds||j.seconds||5;$('#videoSize').value=r.video_size||'fast';$('#videoSteps').value=r.video_steps||j.steps||12;}
+  if(j.mode!=='video'){S.models = [j.model]; store.set('models', S.models);}renderModelList(); renderRefs();
   closeLb();
 }
 function lbMore() {
@@ -406,11 +429,19 @@ function lbMore() {
 
 // ------------------------------------------------------------------ wiring
 function setMode(m) {
+  const wasVideo=S.mode==='video';
+  if(m==='video'&&!wasVideo){S.imageCount=$('#count').value;$('#count').value=1;}
+  if(m!=='video'&&wasVideo&&S.imageCount)$('#count').value=S.imageCount;
   S.mode = m; store.set('mode', m);
   $$('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
   $$('.mode').forEach(d => d.classList.toggle('hidden', d.dataset.mode !== m));
   if (m === 'scene' && $('#size').value === 'sheet-wide') $('#size').value = 'landscape';
   if (m === 'sheet') { const sh = S.cfg && S.cfg.presets.sheets.find(x => x.id === S.sheet); if (sh) $('#size').value = sh.size; }
+  $$('.image-settings').forEach(el=>el.classList.toggle('hidden',m==='video'));
+  $('#countLabel').textContent=m==='video'?'Video clips':'Images per model';
+  $('#count').max=m==='video'?'20':'200';
+  $$('#countChips button').forEach(b=>b.classList.toggle('hidden',m==='video'&&Number(b.textContent)>20));
+  if(S.cfg){renderModelList();renderRefs();updateSamplingHint();updateQueueBtn();}
 }
 function setBg(bg) { S.bg = bg; store.set('bg', bg); $$('#bgSeg button').forEach(b => b.classList.toggle('on', b.dataset.bg === bg)); }
 
@@ -471,7 +502,7 @@ function wire() {
   $('#lbPrev').onclick = () => { S.lb = (S.lb - 1 + lbList.length) % lbList.length; renderLb(); };
   $('#lbNext').onclick = () => { S.lb = (S.lb + 1) % lbList.length; renderLb(); };
   $('#lbFav').onclick = () => toggleFav(lbList[S.lb].id);
-  $('#lbRef').onclick = lbUseRef; $('#lbLoad').onclick = lbLoad; $('#lbMore').onclick = lbMore;
+  $('#lbRef').onclick = lbUseRef; $('#lbVideoBtn').onclick=lbCreateVideo;$('#lbLoad').onclick = lbLoad; $('#lbMore').onclick = lbMore;
   document.addEventListener('keydown', e => {
     if (S.lb < 0 || ['TEXTAREA', 'INPUT'].includes(document.activeElement.tagName)) return;
     if (e.key === 'Escape') closeLb();
@@ -496,6 +527,7 @@ function confirmStop() {
   S.refs = S.refs.slice(0, 3);
   await loadConfig(); updateSamplingHint();
   setMode(S.mode); setBg(S.bg); renderRefs(); updateQueueBtn();
+  if(S.mode==='video'){$('#count').value=1;updateQueueBtn();}
   if (!S.cfg.models.some(m => m.installed)) $$('#pageTabs button')[1].click();
   pollJobs();
 })();
