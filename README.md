@@ -7,10 +7,10 @@ Generate character sheets and scenes with Qwen Rapid AIO v19 or MiniMax H3-Image
 ```bat
 git clone https://github.com/shaguru/charactersheets.git
 cd charactersheets
-INSTALL.bat
+INSTALL_ALL.bat
 ```
 
-Or download the repository ZIP, extract it, and double-click **INSTALL.bat**. GitHub access to this private repository is required. Keep the files together in a writable local folder.
+Or download the repository ZIP, extract it, and double-click **INSTALL_ALL.bat** for Qwen and both MiniMax models. Use **INSTALL.bat** for the smaller Qwen-only setup, including 8 GB GPUs. GitHub access to this private repository is required. Keep the files together in a writable local folder.
 
 One click performs the whole setup:
 
@@ -53,6 +53,8 @@ After installation, double-click **START.bat**. It checks the local environment 
 MiniMax H3-Image uses a quantized derivative (`UD-Q4_K_XL` image transformer plus `Q4_K_M` text encoder) and the official VAE, about 31.8 GiB. H3 Video reuses the existing `abhishekchohan/minimax-h3-int8` cache, about 75 GiB. Jobs share an OS GPU lock; an idle Forge model is unloaded before MiniMax starts, and an active render must finish first.
 
 Open a gallery image and click **Create video** to carry it into Video mode. H3 uses it as a visual reference, so the opening frame may differ. The video configuration is tested with **24 GB VRAM / 64 GB RAM**; Qwen's 8 GB low-VRAM support does not imply that H3 video fits an 8 GB GPU. An SSD substantially reduces cold loading time.
+
+On the tested RTX 3090 Ti with models on an HDD, H3-Image's offloaded reference encoding took about 13.5 minutes; the subsequent transformer load was stopped in the app before the sheet saved. H3 text-to-image and reference-to-video outputs were generated and visually checked, while the reference-sheet output remains unverified. A 5-second Fast video at four steps took about 12 minutes with prompt embeddings already cached (roughly 7 minutes loading, 4.5 minutes rendering); a new prompt adds the text-encoder pass. These small settings are smoke tests; use more video steps for finished work. The installer was checked by dependency resolution and reusing the installed runtime; a complete fresh 175 GiB install has not been exercised here.
 
 ## Optional SDXL model
 
